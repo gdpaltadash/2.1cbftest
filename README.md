@@ -33,7 +33,7 @@ El workflow fija el SDK a `v1.3.10`, descarga `Geode.lib` del release oficial, c
 ## Si algo falla
 
 - **Errores de compilación con MSVC reciente**: Geode v1.3.10 es de diciembre de 2023. Si da errores de la STL,
-  prueba con `windows-2019` en `runs-on`, o con clang-cl como indica el comentario de `build.yml` del propio Geode.
+  prueba con `windows-2019` en `runs-on` (ya usa `windows-2022`), o con clang-cl como indica el comentario de `build.yml` del propio Geode.
 - **Crash o comportamiento raro al entrar a un nivel**: activa "Disable CBF" en los ajustes del mod para comprobar
   que es el mod. La causa más probable es que `PlayLayer::update` de 2.113 no tolere partirse en dos llamadas
   (la parte más arriesgada del port, en `PlayLayer::update` de `src/main.cpp`).
