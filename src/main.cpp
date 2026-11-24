@@ -2,6 +2,7 @@
 #include <Geode/modify/PlayLayer.hpp>
 #include <Geode/modify/GJBaseGameLayer.hpp>
 #include <Geode/modify/GJGameLevel.hpp>
+#include <Geode/loader/SettingEvent.hpp>
 
 #include <algorithm>
 #include <vector>
@@ -203,13 +204,13 @@ class $modify(GJGameLevel) {
 
 $on_mod(Loaded) {
 	g_softToggle = Mod::get()->getSettingValue<bool>("soft-toggle");
-	listenForSettingChanges<bool>("soft-toggle", +[](bool v) {
+	geode::listenForSettingChanges<bool>("soft-toggle", +[](bool v) {
 		g_softToggle = v;
 		resetState();
 	});
 
 	g_safeMode = Mod::get()->getSettingValue<bool>("safe-mode");
-	listenForSettingChanges<bool>("safe-mode", +[](bool v) {
+	geode::listenForSettingChanges<bool>("safe-mode", +[](bool v) {
 		g_safeMode = v;
 	});
 
