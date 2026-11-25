@@ -86,7 +86,7 @@ namespace {
 	template <class... Args>
 	void diag(fmt::format_string<Args...> f, Args&&... args) {
 		if (!DIAG) return;
-		log::info("[diag {} t={:.4f}] {}", ++g_diagSeq, qpcNow(), fmt::format(f, std::forward<Args>(args)...));
+		log::info("[diag {} t={}] {}", ++g_diagSeq, fmt::format("{:.4f}", qpcNow()), fmt::format(f, std::forward<Args>(args)...));
 	}
 
 	// --- MegaHack CPS fix -------------------------------------------------
@@ -212,7 +212,7 @@ class $modify(PlayLayer) {
 
 		std::vector<PendingInput> inputs;
 		inputs.swap(g_pending);
-		diag("PlayLayer::update SPLIT inputs={} dt={:.5f}", inputs.size(), dt);
+		diag("PlayLayer::update SPLIT inputs={} dt={}", inputs.size(), dt);
 
 		float done = 0.f;
 		size_t i = 0;
