@@ -2,6 +2,7 @@
 #include <Geode/modify/PlayLayer.hpp>
 #include <Geode/modify/GJBaseGameLayer.hpp>
 #include <Geode/modify/GJGameLevel.hpp>
+#include <Geode/modify/PlayerObject.hpp>
 #include <Geode/loader/SettingEvent.hpp>
 
 #include <algorithm>
@@ -78,6 +79,16 @@ namespace {
 		g_pending.push_back({ t, button, isPlayer1, push });
 	}
 
+	// --- DIAGNOSTIC (temporary): logs every button call so we can see how many
+	// times GD / our replay call each function per physical click.
+	constexpr bool DIAG = true;
+	int g_diagSeq = 0;
+	template <class... Args>
+	void diag(fmt::format_string<Args...> f, Args&&... args) {
+		if (!DIAG) return;
+		log::info("[diag {} t={:.4f}] {}", ++g_diagSeq, qpcNow(), fmt::format(f, std::forward<Args>(args)...));
+	}
+
 	// --- MegaHack CPS fix -------------------------------------------------
 	// Replaying through layer->pushButton() re-enters the hook chain from the
 	// very top, so any inline hook installed after Geode (MegaHack's CPS
@@ -102,6 +113,7 @@ namespace {
 #endif
 
 	void apply(GJBaseGameLayer* layer, PendingInput const& in) {
+		diag("replay {} btn={} p1={}", in.push ? "push" : "release", in.button, in.isPlayer1);
 		g_replaying = true;
 #ifdef GEODE_IS_WINDOWS
 		if (in.push && g_directPush) g_directPush(layer, in.button, in.isPlayer1);
@@ -120,7 +132,9 @@ namespace {
 
 class $modify(GJBaseGameLayer) {
 	void pushButton(int button, bool isPlayer1) {
-		if (shouldDefer(this)) {
+		bool d = shouldDefer(this);
+		diag("GJBGL::pushButton btn={} p1={} replaying={} defer={}", button, isPlayer1, g_replaying, d);
+		if (d) {
 			capture(true, button, isPlayer1);
 			return;
 		}
@@ -128,11 +142,25 @@ class $modify(GJBaseGameLayer) {
 	}
 
 	void releaseButton(int button, bool isPlayer1) {
-		if (shouldDefer(this)) {
+		bool d = shouldDefer(this);
+		diag("GJBGL::releaseButton btn={} p1={} replaying={} defer={}", button, isPlayer1, g_replaying, d);
+		if (d) {
 			capture(false, button, isPlayer1);
 			return;
 		}
 		GJBaseGameLayer::releaseButton(button, isPlayer1);
+	}
+};
+
+// diagnostic only: shows how often the player object itself is pushed
+class $modify(PlayerObject) {
+	void pushButton(PlayerButton b) {
+		diag("PlayerObject::pushButton btn={} this={} replaying={}", (int)b, (void*)this, g_replaying);
+		PlayerObject::pushButton(b);
+	}
+	void releaseButton(PlayerButton b) {
+		diag("PlayerObject::releaseButton btn={} this={} replaying={}", (int)b, (void*)this, g_replaying);
+		PlayerObject::releaseButton(b);
 	}
 };
 
@@ -184,6 +212,7 @@ class $modify(PlayLayer) {
 
 		std::vector<PendingInput> inputs;
 		inputs.swap(g_pending);
+		diag("PlayLayer::update SPLIT inputs={} dt={:.5f}", inputs.size(), dt);
 
 		float done = 0.f;
 		size_t i = 0;
