@@ -2,10 +2,11 @@
 #include <Geode/modify/PlayLayer.hpp>
 #include <Geode/modify/GJBaseGameLayer.hpp>
 #include <Geode/modify/GJGameLevel.hpp>
-#include <Geode/loader/SettingEvent.hpp>
 
 #include <algorithm>
 #include <vector>
+#include <cstring>
+#include <cstdint>
 
 #include "input.hpp"
 
@@ -76,8 +77,36 @@ namespace {
 		g_pending.push_back({ t, button, isPlayer1, push });
 	}
 
+	// --- MegaHack CPS fix -------------------------------------------------
+	// Replaying through layer->pushButton() re-enters the hook chain from the
+	// very top, so any inline hook installed after Geode (MegaHack's CPS
+	// counter) sees the click twice: once when GD makes the original call
+	// (which we swallow) and again on our replay.
+	// Fix: at load time (before anybody else patches the function) remember
+	// where the function's first jmp points (Geode's handler) and replay by
+	// calling that directly. Our detour + the rest of the Geode chain still
+	// run, but hooks placed on top of Geode's are skipped.
+#ifdef GEODE_IS_WINDOWS
+	using ButtonFn = void(__thiscall*)(GJBaseGameLayer*, int, bool);
+	ButtonFn g_directPush = nullptr;
+	ButtonFn g_directRelease = nullptr;
+
+	ButtonFn resolveDirect(uintptr_t offset) {
+		auto addr = reinterpret_cast<uint8_t*>(geode::base::get() + offset);
+		if (addr[0] != 0xE9) return nullptr; // not a plain jmp: use the normal call
+		int32_t rel;
+		std::memcpy(&rel, addr + 1, sizeof(rel));
+		return reinterpret_cast<ButtonFn>(addr + 5 + rel);
+	}
+#endif
+
 	void apply(GJBaseGameLayer* layer, PendingInput const& in) {
 		g_replaying = true;
+#ifdef GEODE_IS_WINDOWS
+		if (in.push && g_directPush) g_directPush(layer, in.button, in.isPlayer1);
+		else if (!in.push && g_directRelease) g_directRelease(layer, in.button, in.isPlayer1);
+		else
+#endif
 		if (in.push) layer->pushButton(in.button, in.isPlayer1);
 		else layer->releaseButton(in.button, in.isPlayer1);
 		g_replaying = false;
@@ -204,15 +233,22 @@ class $modify(GJGameLevel) {
 
 $on_mod(Loaded) {
 	g_softToggle = Mod::get()->getSettingValue<bool>("soft-toggle");
-	geode::listenForSettingChanges<bool>("soft-toggle", +[](bool v) {
+	listenForSettingChanges<bool>("soft-toggle", +[](bool v) {
 		g_softToggle = v;
 		resetState();
 	});
 
 	g_safeMode = Mod::get()->getSettingValue<bool>("safe-mode");
-	geode::listenForSettingChanges<bool>("safe-mode", +[](bool v) {
+	listenForSettingChanges<bool>("safe-mode", +[](bool v) {
 		g_safeMode = v;
 	});
+
+#ifdef GEODE_IS_WINDOWS
+	// Must run now, while nobody else has patched these functions yet.
+	g_directPush = resolveDirect(0x111500);    // GJBaseGameLayer::pushButton
+	g_directRelease = resolveDirect(0x111660); // GJBaseGameLayer::releaseButton
+	log::info("CBF direct replay: push={} release={}", (void*)g_directPush, (void*)g_directRelease);
+#endif
 
 	rawInputStart();
 }
