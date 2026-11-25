@@ -2,6 +2,7 @@
 #include <Geode/modify/PlayLayer.hpp>
 #include <Geode/modify/GJBaseGameLayer.hpp>
 #include <Geode/modify/GJGameLevel.hpp>
+#include <Geode/loader/SettingEvent.hpp>
 
 #include <algorithm>
 #include <vector>
