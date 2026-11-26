@@ -5,6 +5,7 @@
 #include <Geode/loader/SettingEvent.hpp>
 
 #include <algorithm>
+#include <cmath>
 #include <vector>
 #include <cstring>
 #include <cstdint>
@@ -47,6 +48,11 @@ namespace {
 
 	bool g_softToggle = false;           // true -> CBF disabled
 	bool g_safeMode = false;
+
+	// "Click Between Steps" mode: instead of the exact moment, an input is
+	// applied at the start of the step (of 1/g_tps seconds) in which it happened
+	bool g_stepMode = false;
+	int g_tps = 360;
 
 	// frames longer than this are treated as pause/lag: no splitting
 	constexpr double MAX_SPLIT_FRAME = 0.25;
@@ -200,6 +206,12 @@ class $modify(PlayLayer) {
 			if (this->m_isDead || this->m_hasCompletedLevel) break;
 
 			double f = std::clamp((inputs[i].time - prev) / span, 0.0, 1.0);
+			if (g_stepMode && g_tps > 0) {
+				// steps of 1/tps real seconds counted from the start of the frame;
+				// if the frame is shorter than one step the input goes at the start
+				double steps = span * g_tps;
+				f = steps >= 1.0 ? std::floor(f * steps) / steps : 0.0;
+			}
 			float segment = dt * static_cast<float>(f) - done;
 			if (segment > MIN_SEGMENT) {
 				PlayLayer::update(segment);
@@ -246,6 +258,17 @@ $on_mod(Loaded) {
 		g_softToggle = v;
 		resetState();
 	});
+
+	g_stepMode = Mod::get()->getSettingValue<bool>("click-between-steps");
+	listenForSettingChanges<bool>("click-between-steps", +[](bool v) {
+		g_stepMode = v;
+	});
+
+	g_tps = static_cast<int>(Mod::get()->getSettingValue<int64_t>("steps-tps"));
+	listenForSettingChanges<int64_t>("steps-tps", +[](int64_t v) {
+		g_tps = static_cast<int>(std::clamp<int64_t>(v, 1, 360));
+	});
+	g_tps = std::clamp(g_tps, 1, 360);
 
 	g_safeMode = Mod::get()->getSettingValue<bool>("safe-mode");
 	listenForSettingChanges<bool>("safe-mode", +[](bool v) {
