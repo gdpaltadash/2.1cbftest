@@ -1,6 +1,6 @@
 {
 	"geode": "1.3.10",
-	"version": "v1.0.0",
+	"version": "v1.1.0",
 	"id": "local.click_between_frames_2113",
 	"name": "Click Between Frames (GD 2.113)",
 	"developer": "syzzi (GD 2.113 port)",
@@ -17,6 +17,27 @@
 			"description": "Disable CBF without needing to restart GD.",
 			"type": "bool",
 			"default": false
+		},
+		"click-between-steps": {
+			"name": "Click Between Steps",
+			"description": "Apply each input at the start of the physics step it happened in (like 2.2's Click Between Steps) instead of the exact moment. The step rate is set below.",
+			"type": "bool",
+			"default": false
+		},
+		"steps-tps": {
+			"name": "Steps per second (TPS)",
+			"description": "Step rate used by Click Between Steps. 360 is the highest GD 2.1 accepts. If your FPS is higher than this, inputs go at the start of the frame.",
+			"type": "int",
+			"default": 360,
+			"min": 60,
+			"max": 360,
+			"control": {
+				"arrows": true,
+				"big-arrows": false,
+				"slider": true,
+				"slider-step": 30,
+				"input": true
+			}
 		},
 		"safe-mode": {
 			"name": "Safe Mode",
